@@ -113,7 +113,6 @@ def compare_points(data, quantizer,m = "model_name", plot = False):
     return df.describe()
 
 # mean of histogram not meaningful...because same total points and bins. 
-# Does this make sense?
 
 #%%
 # compare dist of points within each cluster
@@ -254,9 +253,13 @@ def NN_recall(data, quantizer, k, rank):
     index_c.add(q_data)
     D_c,I_c = index_c.search(q_data, k+1)
     
-    match_count = [set(I_c[i,:rank])==set(I_t[i,:rank]) for i in range(N)].sum()
+    #count number of points with exact matching knn (non-ordered)
+    #match_count = sum([set(I_c[i,:rank])==set(I_t[i,:rank]) for i in range(N)])
     
-    recall = (I_c[:, :rank] == I_t[:, :rank]).sum()/float(N)
+    #count number of points with first nn in top k (traditional recall@k)
+    match_count = (I_c[:,:rank] == I_t[:,1:2]).sum() #FAISS puts original point as NN slot 0
+    
+    recall = match_count/float(N)
     
     return recall
     
