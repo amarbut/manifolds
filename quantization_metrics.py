@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 from scipy import stats
+from scipy.special import kl_div
 import time
 #%%
 #load sample spaces
@@ -35,20 +36,19 @@ aq.train(np.array(model_samples['zhang']))
 
 
 #%%
-#relative reconstruction error
+
 
 def avg_reconstruction_error(data:list, quantizer):
+    #relative reconstruction error
     np_data = np.array(data)
     codes = quantizer.compute_codes(np_data)
     recon = quantizer.decode(codes)
     error = ((np_data - recon)**2).sum() / (np_data ** 2).sum()
     return error
 
-#%%
-#compare distribution (pairwise distances) of centroids
 
 def compare_centroids(quantizer,m = "model_name", plot = False):
-    
+    #compare distribution (pairwise distances) of centroids
     if hasattr(quantizer, 'centroids'):    
         c = faiss.vector_float_to_array(quantizer.centroids)
         M = quantizer.M
@@ -79,19 +79,16 @@ def compare_centroids(quantizer,m = "model_name", plot = False):
     df = pd.DataFrame(all_dist).transpose()
         
     return df.describe()
-    
-#%%
-#compare dist of points assigned to each subspace
+
 
 def compare_points(data, quantizer,m = "model_name", plot = False):
+    #compare dist of points assigned to each subspace
     if hasattr(quantizer, 'centroids'):    
         M = quantizer.M
         k = quantizer.ksub
-        d = quantizer.dsub
     elif hasattr(quantizer, 'codebooks'):
         M = quantizer.M
         k = quantizer.K
-        d = quantizer.d
     else:
         raise Exception("Can't find quantizer attributes")
     
@@ -100,7 +97,7 @@ def compare_points(data, quantizer,m = "model_name", plot = False):
     all_hist = []
     for i in range(M):
         h = np.histogram(trans[i], bins = k)
-        all_hist.append(h[0])
+        all_hist.extend(list(h[0]))
     # TODO: issue with plotting
     #     if plot = True:
     #         plt.bar(list(range(0,255)),np.sort(h[0])[::-1], alpha = 0.5)
@@ -108,19 +105,22 @@ def compare_points(data, quantizer,m = "model_name", plot = False):
     # if plot = True:    
     #     plt.show()
         
-    df = pd.DataFrame(all_hist).transpose()
-        
-    return df.describe()
+    var = np.var(all_hist)
+    
+    #sample from uniform to compare in kl_div
+    u = np.random.uniform(0, k, len(data)*M) #duplicate data to replicate subspaces
+    u_hist = np.histogram(u, bins = k*M)[0]
+    kl = sum(kl_div(all_hist, u_hist)) #elementwise function needs to be summed
+    
+    
+    return var,kl
 
-# mean of histogram not meaningful...because same total points and bins. 
-
-#%%
-# compare dist of points within each cluster
-# shows distribution of *average pairwise distances* between points in each
-# cluster, for each subspace
-# should show distribution of std dev instead?
 
 def compare_point_dist(data, quantizer, m = "model_name", plot = False):
+    # compare dist of points within each cluster
+    # shows distribution of *average pairwise distances* between points in each
+    # cluster, for each subspace
+    # should show distribution of std dev instead?
     if hasattr(quantizer, 'centroids'):    
         M = quantizer.M
         k = quantizer.ksub
@@ -164,79 +164,10 @@ def compare_point_dist(data, quantizer, m = "model_name", plot = False):
         
     return df.describe()
 
-#%%
-# nearest neighbor recall
-# based on sablayrolles:
-# https://github.com/facebookresearch/spreadingvectors/blob/main/lib/metrics.py
-
-
-# def get_nearestneighbors_faiss(xq, xb, k, device, needs_exact=True, verbose=False):
-#     assert device in ["cpu", "cuda"]
-
-#     if verbose:
-#         print("Computing nearest neighbors (Faiss)")
-
-#     if needs_exact or device == 'cuda':
-#         index = faiss.IndexFlatL2(xq.shape[1])
-#     else:
-#         index = faiss.index_factory(xq.shape[1], "HNSW32")
-#         index.hnsw.efSearch = 64
-#     if device == 'cuda':
-#         index = faiss.index_cpu_to_all_gpus(index)
-
-#     start = time.time()
-#     index.add(xb)
-#     _, I = index.search(xq, k)
-#     if verbose:
-#         print("  NN search (%s) done in %.2f s" % (
-#             device, time.time() - start))
-
-#     return I
-
-# def evaluate(net, xq, xb, gt, quantizers, best_key, device=None,
-#              trainset=None):
-#     net.eval()
-#     if device is None:
-#         device = next(net.parameters()).device.type
-#     xqt = forward_pass(net, sanitize(xq), device=device)
-#     xbt = forward_pass(net, sanitize(xb), device=device)
-#     if trainset is not None:
-#         trainset = forward_pass(net, sanitize(trainset), device=device)
-#     nq, d = xqt.shape
-#     res = {}
-#     score = 0
-#     for quantizer in quantizers:
-#         qt = getQuantizer(quantizer, d)
-
-#         qt.train(trainset)
-#         xbtq = qt(xbt)
-#         if not qt.asymmetric:
-#             xqtq = qt(xqt)
-#             I = get_nearestneighbors(xqtq, xbtq, 100, device)
-#         else:
-#             I = get_nearestneighbors(xqt, xbtq, 100, device)
-
-#         print("%s\t nbit=%3d: " % (quantizer, qt.bits), end=' ')
-
-#         # compute 1-recall at ranks 1, 10, 100 (comparable with
-#         # fig 5, left of the paper)
-#         recalls = []
-#         for rank in 1, 10, 100:
-#             # number of points w/ 1,10,and 100 nn correct divided by total number points
-#             recall = (I[:, :rank] == gt[:, :1]).sum() / float(nq)
-#             key = '%s,rank=%d' % (quantizer, rank)
-#             if key == best_key:
-#                 score = recall
-#             recalls.append(recall)
-#             print('%.4f' % recall, end=" ")
-#         res[quantizer] = recalls
-#         print("")
-        
-#%%
-# nearest neighbor recall
-# my own implementation w/ FAISS
 
 def NN_recall(data, quantizer, k, rank):
+    # nearest neighbor recall
+    # my own implementation w/ FAISS
     m = len(data[0]) #vector length
     N = len(data) #number points
     
@@ -263,3 +194,20 @@ def NN_recall(data, quantizer, k, rank):
     
     return recall
     
+
+def patchiness(data, quantizer):
+    #patchiness index to be applied to quantized datapoints
+    n = len(data)#/M?? NO, quantizer sees all points, but assigns them over M subspaces which are later recombined
+    if hasattr(quantizer, 'centroids'):
+        k = quantizer.ksub
+    elif hasattr(quantizer, 'codebooks'):
+        k = quantizer.K
+    else:
+        raise Exception("Can't find quantizer attributes")
+    
+    m = n/k #avg points per cell
+    V, kl = compare_points(data, quantizer) #variance in m over all cells
+    
+    m_star = m +((V/m)-1) #density from individual's perspective
+    
+    return m_star/m #patchiness index

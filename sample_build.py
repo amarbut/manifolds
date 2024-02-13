@@ -80,7 +80,7 @@ def transformer_sample(datasets:list, model, model_source, tokenizer = None, sam
     for i in range(sample_size):
         if i%100 == 0:
             print("sequence", i)
-        ds = random.choice(data)
+        ds = random.choice(datasets)
         ds = ds.shuffle()
         sent = list(ds)[0]
         
@@ -129,21 +129,21 @@ model_dict = {#'alaj':{'model':mlm,
               # 'shuffle_corp':{'model':shuffle_corp,
               #                 'source': 'fairseq',
               #                 'tokenizer': None},
-              # 'zhang':{'model':bert,
-              #           'source': 'huggingface',
-              #           'tokenizer': bert_tokenizer},
+               'zhang':{'model':bert,
+                         'source': 'huggingface',
+                         'tokenizer': bert_tokenizer},
               # 'germ':{'model':germ,
               #         'source': 'huggingface',
               #         'tokenizer': bert_tokenizer},
               # 'chin':{'model':chin,
               #         'source': 'huggingface',
               #         'tokenizer': bert_tokenizer},
-              'untrained':{'model':newMod,
-                           'source': 'huggingface',
-                           'tokenizer': bert_tokenizer},
-              'zhang_shuff': {'model':shuffle,
-                        'source': 'huggingface',
-                        'tokenizer': bert_tokenizer}
+              # 'untrained':{'model':newMod,
+              #              'source': 'huggingface',
+              #              'tokenizer': bert_tokenizer},
+              # 'zhang_shuff': {'model':shuffle,
+              #           'source': 'huggingface',
+              #           'tokenizer': bert_tokenizer}
               }
 
 #%%
@@ -156,7 +156,7 @@ for m in model_dict:
     tokenizer = model_dict[m]['tokenizer']
     emb = transformer_sample(data, model, model_source, tokenizer, sample_size = 5000)
     model_dict[m]['sample'] = emb
-    filename = m + "_samplespace_" + datetime.today().strftime("%d%b%-y") + ".pkl"
+    filename = m + "_samplespace_" + datetime.today().strftime("%d%b%-y") + "_2.pkl"
     pickle.dump(emb, open(filename, "wb"))
 
 #moved sample files to ssd
