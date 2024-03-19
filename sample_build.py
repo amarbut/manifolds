@@ -106,57 +106,150 @@ def transformer_sample(datasets:list, model, model_source, tokenizer = None, sam
     return emb
 
 #%%
+def transformer_sample2(sequences, model, model_source, tokenizer = None):
+    emb = []
+    
+    for idx, sent in enumerate(sequences):
+        
+        if model_source == 'fairseq':
+            max_len = model.cfg['model'].max_positions
+            inp = model.encode(sent)
+            inp = inp[:max_len-3] #adjust for indexing and CLS and SEP tokens
+            outp = model.extract_features(inp)
+            for v in outp[0]:
+                emb.append(v.detach().numpy())
+                
+        elif model_source == 'huggingface':
+            max_len = model.config.max_position_embeddings
+            inp = tokenizer(sent, return_tensors = "pt")
+            inp['input_ids'] = inp['input_ids'][None,0,:max_len-3] #adjust for indexing and CLS and SEP tokens
+            if inp.get('token_type_ids') != None:
+                inp['token_type_ids'] = inp['token_type_ids'][None,0,:max_len-3]
+            inp['attention_mask'] = inp['attention_mask'][None,0,:max_len-3]
+            outp = model(**inp, output_hidden_states = True)
+            for v in outp.hidden_states[12][0]:
+                emb.append(v.detach().numpy())
+            
+    return emb
+
+#%%
 #specify model details
 
 model_dict = {#'alaj':{'model':mlm,
-              #       'source': 'huggingface',
-              #       'tokenizer': alaj_tokenizer},
-              # 'ascii':{'model':asci,
-              #          'source': 'huggingface',
-              #          'tokenizer': alaj_tokenizer},
-              # 'fc':{'model':fc,
-              #       'source': 'huggingface',
-              #       'tokenizer': alaj_tokenizer},
-              # 'rand':{'model':rand,
-              #         'source': 'huggingface',
-              #         'tokenizer': alaj_tokenizer},
-              # 'sinha':{'model':roberta_sinha,
-              #          'source': 'fairseq',
-              #          'tokenizer': None},
-              # 'shuffle_sent':{'model':shuffle_sent,
-              #                 'source': 'fairseq',
-              #                 'tokenizer': None},
-              # 'shuffle_corp':{'model':shuffle_corp,
-              #                 'source': 'fairseq',
-              #                 'tokenizer': None},
-               'zhang':{'model':bert,
-                         'source': 'huggingface',
-                         'tokenizer': bert_tokenizer},
-              # 'germ':{'model':germ,
-              #         'source': 'huggingface',
-              #         'tokenizer': bert_tokenizer},
-              # 'chin':{'model':chin,
-              #         'source': 'huggingface',
-              #         'tokenizer': bert_tokenizer},
-              # 'untrained':{'model':newMod,
-              #              'source': 'huggingface',
-              #              'tokenizer': bert_tokenizer},
-              # 'zhang_shuff': {'model':shuffle,
-              #           'source': 'huggingface',
-              #           'tokenizer': bert_tokenizer}
+#                      'source': 'huggingface',
+#                      'tokenizer': alaj_tokenizer},
+#                'ascii':{'model':asci,
+#                         'source': 'huggingface',
+#                         'tokenizer': alaj_tokenizer},
+#                'fc':{'model':fc,
+#                      'source': 'huggingface',
+#                      'tokenizer': alaj_tokenizer},
+#                'rand':{'model':rand,
+#                        'source': 'huggingface',
+#                        'tokenizer': alaj_tokenizer},
+#                'sinha':{'model':roberta_sinha,
+#                         'source': 'fairseq',
+#                         'tokenizer': None},
+#                'shuffle_sent':{'model':shuffle_sent,
+#                                'source': 'fairseq',
+#                                'tokenizer': None},
+#                'shuffle_corp':{'model':shuffle_corp,
+#                                'source': 'fairseq',
+#                                'tokenizer': None},
+                'zhang1':{'model':bert,
+                          'source': 'huggingface',
+                          'tokenizer': bert_tokenizer},
+               #  'germ':{'model':germ,
+               #         'source': 'huggingface',
+               #         'tokenizer': bert_tokenizer},
+               # 'chin':{'model':chin,
+               #         'source': 'huggingface',
+               #         'tokenizer': bert_tokenizer},
+               # 'untrained':{'model':newMod,
+               #              'source': 'huggingface',
+               #              'tokenizer': bert_tokenizer},
+               # 'zhang_shuff': {'model':shuffle,
+               #           'source': 'huggingface',
+               #           'tokenizer': bert_tokenizer}
               }
 
 #%%
+#OLD CODE, OLD SAMPLE BUILDING WITHOUT LENGTH CHECK
 #build out sample spaces
+# for m in model_dict:
+#     print(datetime.now())
+#     print(m)
+#     model = model_dict[m]['model']
+#     model_source = model_dict[m]['source']
+#     tokenizer = model_dict[m]['tokenizer']
+#     emb = transformer_sample(data, model, model_source, tokenizer, sample_size = 5000)
+#     model_dict[m]['sample'] = emb
+#     filename = m + "_samplespace_" + datetime.today().strftime("%d%b%-y") + "_2.pkl"
+#     pickle.dump(emb, open(filename, "wb"))
+
+# #moved sample files to ssd
+
+# model_samples = dict()
+
+# for m in model_dict:
+#     d = model_dict[m]['sample']
+#     model_samples[m] = d    
+    
+
+# fname = "all_samplespace_"+ datetime.today().strftime("%d%b%-y")+".pkl"
+# pickle.dump(model_samples, open(fname, "wb"))
+
+#%%
+#build out sample sequences
+vectorizer_uni = CountVectorizer()
+vectorizer_bi = CountVectorizer(ngram_range = (2,2))
+tokenizer = vectorizer_uni.build_tokenizer()
+
+train, val, test = datasets.PennTreebank()
+t,v,t2 = datasets.WikiText2()
+
+data = [train,val,test,t,v,t2]
+all_data = [i for ds in data for i in ds if len(tokenizer(i))>3 and len(tokenizer(i))<50]
+
+sample_size = 5000
+sample_sentences = set()
+
+while len(sample_sentences) < sample_size:
+    if len(sample_sentences)%100 == 0:
+        print("sequence", len(sample_sentences))
+    ds = random.choice(data)
+    ds = ds.shuffle()
+    sent = list(ds)[0]
+    length = len(tokenizer(sent))
+    if length>3 and length<50:
+        sample_sentences.add(" ".join(tokenizer(sent)))
+        
+fname = "/media/anna/Samsung_T5/manifolds/sample_sequences_2_"+ datetime.today().strftime("%d%b%-y")+".pkl"
+pickle.dump(sample_sentences, open(fname, "wb"))
+
+#%%
+#check for duplicate sentences
+
+sample_sentences = pickle.load(open("/media/anna/Samsung_T5/manifolds/sample_sequences_26Feb24.pkl", "rb"))
+
+tokenized = [" ".join(tokenizer(s)) for s in sample_sentences]
+unique = set(tokenized)
+
+# ~750 duplicates in 5000 sample. Need to remove duplicates when sampling.
+
+#%%
+#build out sample latent spaces
+sample_sentences = pickle.load(open("/media/anna/Samsung_T5/manifolds/sample_sequences_18Mar24.pkl", "rb"))
+
 for m in model_dict:
     print(datetime.now())
     print(m)
     model = model_dict[m]['model']
     model_source = model_dict[m]['source']
     tokenizer = model_dict[m]['tokenizer']
-    emb = transformer_sample(data, model, model_source, tokenizer, sample_size = 5000)
+    emb = transformer_sample2(sample_sentences, model, model_source, tokenizer)
     model_dict[m]['sample'] = emb
-    filename = m + "_samplespace_" + datetime.today().strftime("%d%b%-y") + "_2.pkl"
+    filename = "/media/anna/Samsung_T5/manifolds/" + m + "_samplespace_" + datetime.today().strftime("%d%b%-y") + ".pkl"
     pickle.dump(emb, open(filename, "wb"))
 
 #moved sample files to ssd
@@ -168,5 +261,6 @@ for m in model_dict:
     model_samples[m] = d    
     
 
-fname = "all_samplespace_"+ datetime.today().strftime("%d%b%-y")+".pkl"
+fname = "/media/anna/Samsung_T5/manifolds/_all_samplespace_"+ datetime.today().strftime("%d%b%-y")+".pkl"
 pickle.dump(model_samples, open(fname, "wb"))
+

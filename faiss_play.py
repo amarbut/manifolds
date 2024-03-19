@@ -12,7 +12,7 @@ import pickle
 
 ?faiss.Kmeans
 
-model_samples = pickle.load(open("ptb_model_samples_5Jun23.pkl", "rb"))
+model_samples = pickle.load(open("/media/anna/Samsung_T5/manifolds/ptb_model_samples_5Jun23.pkl", "rb"))
 
 km = faiss.Kmeans(d = 768, k = 100)
 km.train(model_samples['zhang'])
