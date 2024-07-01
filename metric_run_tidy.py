@@ -12,7 +12,7 @@ import os
 from math import e
 #%%
 pre = "/media/anna/Samsung_T5/manifolds/"
-suf = "samplespace_14Mar24.pkl"
+suf = "samplespace_20Mar24.pkl"
 
 model_samples = dict()
 

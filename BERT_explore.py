@@ -125,8 +125,8 @@ for layer in model.encoder.layer:
 pbert_eng = BertForSequenceClassification.from_pretrained("protbert_engEmbeddings")    
 model.save_pretrained("bert_frozen_all")
 
-for name, param in newMod.named_parameters():
-     print(name, param.requires_grad)
+for name, param in model.named_parameters():
+     print(name)
 
 for name, param in model.named_parameters():
      param.requires_grad = False

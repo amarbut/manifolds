@@ -12,7 +12,7 @@ from torch import nn, FloatTensor
 import torch
 import transformers
 from transformers import BertForMaskedLM, RobertaTokenizer, RobertaForMaskedLM, BertTokenizer, BertConfig, BertModel
-from fairseq.models.roberta import RobertaModel
+# from fairseq.models.roberta import RobertaModel
 import random
 from argparse import Namespace
 from datetime import datetime
@@ -63,7 +63,7 @@ chin.config.vocab_size = 30522
 
 #obviously not interesting to visualize--same latent space as original
 shuffle = BertForMaskedLM.from_pretrained("bert-base-uncased")
-shuff_emb = bert_emb.weight.data.numpy()
+shuff_emb = np.copy(bert_emb.weight.data.numpy())
 random.shuffle(shuff_emb)
 shuffle.set_input_embeddings(nn.Embedding.from_pretrained(FloatTensor(shuff_emb)))
 
@@ -156,9 +156,9 @@ model_dict = {#'alaj':{'model':mlm,
 #                'shuffle_corp':{'model':shuffle_corp,
 #                                'source': 'fairseq',
 #                                'tokenizer': None},
-                'zhang1':{'model':bert,
-                          'source': 'huggingface',
-                          'tokenizer': bert_tokenizer},
+                # 'zhang1':{'model':bert,
+                #           'source': 'huggingface',
+                #           'tokenizer': bert_tokenizer},
                #  'germ':{'model':germ,
                #         'source': 'huggingface',
                #         'tokenizer': bert_tokenizer},
@@ -168,9 +168,9 @@ model_dict = {#'alaj':{'model':mlm,
                # 'untrained':{'model':newMod,
                #              'source': 'huggingface',
                #              'tokenizer': bert_tokenizer},
-               # 'zhang_shuff': {'model':shuffle,
-               #           'source': 'huggingface',
-               #           'tokenizer': bert_tokenizer}
+                'zhang_shuff': {'model':shuffle,
+                          'source': 'huggingface',
+                          'tokenizer': bert_tokenizer}
               }
 
 #%%
@@ -201,6 +201,9 @@ model_dict = {#'alaj':{'model':mlm,
 
 #%%
 #build out sample sequences
+#issue with new torch version bandaid (5/13/24):
+torch.utils.data.datapipes.utils.common.DILL_AVAILABLE = torch.utils._import_utils.dill_available()
+
 vectorizer_uni = CountVectorizer()
 vectorizer_bi = CountVectorizer(ngram_range = (2,2))
 tokenizer = vectorizer_uni.build_tokenizer()
@@ -212,20 +215,22 @@ data = [train,val,test,t,v,t2]
 all_data = [i for ds in data for i in ds if len(tokenizer(i))>3 and len(tokenizer(i))<50]
 
 sample_size = 5000
-sample_sentences = set()
 
-while len(sample_sentences) < sample_size:
-    if len(sample_sentences)%100 == 0:
-        print("sequence", len(sample_sentences))
-    ds = random.choice(data)
-    ds = ds.shuffle()
-    sent = list(ds)[0]
-    length = len(tokenizer(sent))
-    if length>3 and length<50:
-        sample_sentences.add(" ".join(tokenizer(sent)))
-        
-fname = "/media/anna/Samsung_T5/manifolds/sample_sequences_2_"+ datetime.today().strftime("%d%b%-y")+".pkl"
-pickle.dump(sample_sentences, open(fname, "wb"))
+for i in range(1,10):
+    sample_sentences = set()
+    
+    while len(sample_sentences) < sample_size:
+        if len(sample_sentences)%100 == 0:
+            print("sequence", len(sample_sentences))
+        ds = random.choice(data)
+        ds = ds.shuffle()
+        sent = list(ds)[0]
+        length = len(tokenizer(sent))
+        if length>3 and length<50:
+            sample_sentences.add(" ".join(tokenizer(sent)))
+            
+    fname = "/media/anna/Samsung_T5/manifolds/sample_sequences/"+str(i)+".pkl"
+    pickle.dump(sample_sentences, open(fname, "wb"))
 
 #%%
 #check for duplicate sentences
@@ -263,4 +268,9 @@ for m in model_dict:
 
 fname = "/media/anna/Samsung_T5/manifolds/_all_samplespace_"+ datetime.today().strftime("%d%b%-y")+".pkl"
 pickle.dump(model_samples, open(fname, "wb"))
+#%%
+from transformers import BertTokenizer
 
+tokenizer = BertTokenizer.from_pretrained("prajjwal1/bert-small")
+
+inp = tokenizer("This is a sentence", return_tensors="pt")
