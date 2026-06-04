@@ -25,7 +25,7 @@ import json
 import argparse
 import os
 from torch import nn, FloatTensor
-from fairseq.models.roberta import RobertaModel
+#from fairseq.models.roberta import RobertaModel
 import random
 
 
