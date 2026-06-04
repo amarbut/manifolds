@@ -1,0 +1,21 @@
+# Exploratory and local working directories
+explore/
+results/
+util/
+Viz/
+Paper files/
+texttovis_study/
+
+# Python artifacts
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Editor artifacts
+*.swp
+.Rhistory
+
+# Cluster artifacts
+*.out
+*.err
+*.slurm
