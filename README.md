@@ -9,7 +9,7 @@ Code for the paper:
 
 ## Overview
 
-How does the spatial structure of a transformer's contextual representations relate to what it can do on downstream tasks? We apply a suite of geometric measures to the latent spaces of BERT-family models at multiple layers and find that **quantized cell density** — which we term Point Patchiness (PP) — predicts GLUE benchmark performance with r = 0.9.
+How does the spatial structure of a transformer's contextual representations relate to what it can do on downstream tasks? We apply a suite of geometric measures to the latent spaces of synthetically perturbed BERT-family models and find that quantized point patchiness, a cell density measure borrowed from ecology, predicts GLUE benchmark performance with r = 0.9.
 
 ## Repository Structure
 
